@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Editable Quotation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        .editable {
+            min-width: 50px;
+            padding: 5px;
+            border: 1px solid transparent;
+        }
+        .editable:hover {
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+        }
+        .editable:focus {
+            outline: none;
+            border: 1px solid #4299E1;
+            background: white;
+        }
+        .header-img, .footer-img {
+            width: 100%;
+            max-height: 100px;
+            object-fit: contain;
+        }
+        .actions {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .save-btn {
+            background: #4299E1;
+            color: white;
+        }
+        .save-btn:hover {
+            background: #3182CE;
+        }
+    </style>
+</head>
+<body>
+    <div class="actions">
+        <button class="btn save-btn" id="saveBtn">Save & Update Email</button>
+    </div>
+    <div class="container">
+        <img id="headerImg" class="header-img">
+        <div id="content"></div>
+        <img id="footerImg" class="footer-img">
+    </div>
+    <script src="lib/jspdf.umd.min.js"></script>
+    <script src="lib/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        // This will be populated with the quotation data
+        let quotationData = {};
+
+        function makeEditable(element) {
+            element.contentEditable = true;
+            element.classList.add('editable');
+        }
+
+        function createTable(products) {
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Sr No</th>
+                        <th>Product Code</th>
+                        <th>Product Name</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${products.map(p => `
+                        <tr>
+                            <td class="editable">${p.srNo}</td>
+                            <td class="editable">${p.code}</td>
+                            <td class="editable">${p.name}</td>
+                            <td class="editable">${p.qty || 1}</td>
+                            <td class="editable">${p.price}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            // Make all cells editable
+            table.querySelectorAll('.editable').forEach(cell => {
+                makeEditable(cell);
+            });
+            
+            return table;
+        }
+
+        // Save changes and update email
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const tableData = [];
+            document.querySelectorAll('table tbody tr').forEach(row => {
+                const cells = row.cells;
+                tableData.push({
+                    srNo: cells[0].textContent,
+                    code: cells[1].textContent,
+                    name: cells[2].textContent,
+                    qty: cells[3].textContent,
+                    price: cells[4].textContent
+                });
+            });
+
+            // Generate new PDF with updated data
+            const doc = new jspdf.jsPDF();
+            
+            // Add header
+            doc.addImage(document.getElementById('headerImg').src, 'JPEG', 0, 0, 210, 39);
+            
+            // Add table
+            doc.autoTable({
+                startY: 50,
+                head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
+                body: tableData.map(p => [p.srNo, p.code, p.name, p.qty, p.price]),
+                styles: quotationData.tableStyles,
+                headStyles: quotationData.headStyles,
+                bodyStyles: quotationData.bodyStyles,
+                columnStyles: quotationData.columnStyles,
+                theme: 'grid'
+            });
+
+            // Add footer
+            doc.addImage(document.getElementById('footerImg').src, 'JPEG', 0, doc.internal.pageSize.height - 39, 210, 39);
+
+            // Send message to extension with updated PDF
+            window.opener.postMessage({
+                type: 'updateQuotation',
+                pdf: doc.output('datauristring')
+            }, '*');
+
+            // Close this window
+            window.close();
+        });
+
+        // Receive initial data from extension
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'quotationData') {
+                quotationData = event.data;
+                document.getElementById('headerImg').src = quotationData.headerImage;
+                document.getElementById('footerImg').src = quotationData.footerImage;
+                document.getElementById('content').appendChild(createTable(quotationData.products));
+            }
+        });
+    </script>
+</body>
+</html> 

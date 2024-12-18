@@ -26,7 +26,8 @@
       "lib/jspdf.umd.min.js",
       "lib/jspdf.plugin.autotable.min.js",
       "images/header.jpg",
-      "images/footer.jpg"
+      "images/footer.jpg",
+      "quotation.html"
     ],
     "matches": ["https://mail.google.com/*"]
   }],
