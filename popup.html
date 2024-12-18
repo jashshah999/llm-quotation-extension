@@ -12,6 +12,8 @@
         --bg-color: #F7FAFC;
         --card-bg: #FFFFFF;
         --hover-color: rgba(66, 153, 225, 0.1);
+        --border-color: #E2E8F0;
+        --input-bg: #EDF2F7;
       }
 
       :root[data-theme="dark"] {
@@ -23,6 +25,8 @@
         --bg-color: #1A202C;
         --card-bg: #2D3748;
         --hover-color: rgba(99, 179, 237, 0.1);
+        --border-color: #4A5568;
+        --input-bg: #2D3748;
       }
 
       body {
@@ -33,6 +37,12 @@
         background: var(--bg-color);
         color: var(--text-color);
         transition: all 0.3s ease;
+      }
+
+      /* Large popup state */
+      body.large-popup {
+        width: 600px;
+        min-height: 400px;
       }
 
       .container {
@@ -128,6 +138,92 @@
         letter-spacing: 0.02em;
       }
 
+      /* Price input styling */
+      .price-input-container {
+        display: none;
+        background: var(--card-bg);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-y: auto;
+      }
+
+      .price-input-container h2 {
+        color: var(--accent-color);
+        margin: 0 0 1.5rem 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .price-input-item {
+        background: var(--bg-color);
+        padding: 1.25rem;
+        border-radius: 0.75rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .price-input-item label {
+        display: block;
+        margin-bottom: 0.75rem;
+        color: var(--text-color);
+        font-weight: 500;
+        font-size: 0.9rem;
+      }
+
+      .price-input-item label strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 1rem;
+      }
+
+      .price-input-item input {
+        width: calc(100% - 2rem);
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        background: var(--input-bg);
+        color: var(--text-color);
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+      }
+
+      .price-input-item input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px var(--hover-color);
+      }
+
+      .confirm-prices-btn {
+        background: var(--accent-color);
+        color: white;
+        width: calc(100% - 2rem);
+        margin: 1rem;
+        padding: 1rem;
+        border: none;
+        border-radius: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: sticky;
+        bottom: 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .confirm-prices-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+
       .status {
         text-align: center;
         padding: 0.75rem;
@@ -145,6 +241,16 @@
       .status.error {
         background: rgba(245, 101, 101, 0.2);
         color: var(--error-color);
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.02); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+
+      .processing {
+        animation: pulse 1.5s infinite ease-in-out;
       }
 
       .dialog-overlay {
@@ -189,14 +295,22 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       }
 
-      @keyframes pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.02); opacity: 0.8; }
-        100% { transform: scale(1); opacity: 1; }
+      /* Add a back button for price input view */
+      .back-button {
+        position: absolute;
+        top: 1.5rem;
+        left: 1.5rem;
+        background: none;
+        border: none;
+        color: var(--text-color);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
       }
 
-      .processing {
-        animation: pulse 1.5s infinite ease-in-out;
+      .back-button:hover {
+        background: var(--hover-color);
       }
     </style>
   </head>
@@ -228,6 +342,17 @@
       </div>
 
       <div id="status" class="status"></div>
+    </div>
+
+    <div id="priceInputContainer" class="price-input-container">
+      <button class="back-button" id="backButton">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+      </button>
+      <h2>Enter Prices for Quotation</h2>
+      <div id="priceInputs"></div>
+      <button id="confirmPrices" class="confirm-prices-btn">Generate PDF</button>
     </div>
 
     <div id="dialog" class="dialog-overlay">

@@ -235,21 +235,80 @@ document.getElementById('replyButton').addEventListener('click', async () => {
   document.getElementById('dialog').style.display = 'none';
  });
  
- // Add new event listener for PDF button
+ // Update the quotePdfButton click handler
 document.getElementById('quotePdfButton').addEventListener('click', async () => {
-  setButtonsLoading(true);
-  showStatus('Generating quote...', 'success');
   try {
+    setButtonsLoading(true);
+    showStatus('Generating quote...', 'success');
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const apiKey = CONFIG.OPENAI_API_KEY;
+
+    // Get products first
+    const productsResult = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async (apiKey) => {
+        const emailContainers = document.querySelectorAll('.gs');
+        let emailContent = '';
+        emailContainers.forEach((container) => {
+          emailContent += container.innerText + '\n';
+        });
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content: `Extract product information from the email and format it as JSON array. For each product include:
+                  1. srNo (number starting from 1)
+                  2. code (Product Code if mentioned)
+                  3. name (Product Name/Description)
+                  4. qty (if mentioned, otherwise use 1)
+                  5. price (leave empty for manual filling)`
+              },
+              {
+                role: "user",
+                content: `Extract product information from this email: ${emailContent}`
+              }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        let products = [];
+        try {
+          const content = data.choices[0].message.content;
+          products = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
+        } catch (error) {
+          console.error('Error parsing products:', error);
+          products = [{ srNo: 1, code: 'Error', name: 'Could not parse products', qty: 1, price: '' }];
+        }
+        return products;
+      },
+      args: [apiKey]
+    });
+
+    const products = productsResult[0].result;
     
-    // First inject jsPDF library
+    // Show price input dialog in the popup itself
+    const updatedProducts = await showPriceInputDialog(products);
+    
+    if (!updatedProducts) {
+      throw new Error('No prices entered');
+    }
+
+    // Inject required libraries
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['lib/jspdf.umd.min.js']
     });
 
-    // Then inject autotable plugin
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['lib/jspdf.plugin.autotable.min.js']
@@ -259,13 +318,10 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
     const headerUrl = chrome.runtime.getURL('images/header.jpg');
     const footerUrl = chrome.runtime.getURL('images/footer.jpg');
 
-    // Wait a moment for libraries to initialize
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Then execute the PDF generation code
+    // Generate PDF with updated products
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: async (apiKey, headerUrl, footerUrl) => {
+      func: async (updatedProducts, headerUrl, footerUrl) => {
         try {
           // Helper function to load image as base64
           const loadImage = async (url) => {
@@ -282,94 +338,22 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             });
           };
 
-          // Get email content first
-          const emailContainers = document.querySelectorAll('.gs');
-          let emailContent = '';
-          emailContainers.forEach((container) => {
-            emailContent += container.innerText + '\n';
-          });
-
           // Create PDF
           const doc = new jspdf.jsPDF();
           
           // Load and add header image
           try {
-            console.log('Loading header from:', headerUrl);
             const headerBase64 = await loadImage(headerUrl);
-            doc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39); // A4 width is 210mm
+            doc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39);
           } catch (error) {
             console.error('Error loading header image:', error);
           }
 
-          // Update the API call section in the PDF generation function
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: "gpt-3.5-turbo",
-              messages: [
-                {
-                  role: "system",
-                  content: `Extract product information from the email and format it as JSON array. For each product include:
-                    1. srNo (number starting from 1)
-                    2. code (Product Code if mentioned)
-                    3. name (Product Name/Description)
-                    4. qty (if mentioned, otherwise use 1)
-                    5. price (leave empty for manual filling)
-
-                    Example format:
-                    [
-                      {
-                        "srNo": 1,
-                        "code": "ABC123",
-                        "name": "Digital Multimeter",
-                        "qty": 1,
-                        "price": ""
-                      }
-                    ]
-                    
-                    Include all products mentioned in the email. If a code is not mentioned, use "N/A".
-                    Focus on identifying actual products and measurement instruments.`
-                },
-                {
-                  role: "user",
-                  content: `Extract product information from this email: ${emailContent}`
-                }
-              ],
-              temperature: 0.7,
-              max_tokens: 1000
-            })
-          });
-
-          const data = await response.json();
-          let products = [];
-          try {
-            const content = data.choices[0].message.content;
-            console.log('API Response:', content);
-            products = JSON.parse(content.replace(/```json\n?|\n?```/g, '').trim());
-            
-            // Ensure all products have the required fields
-            products = products.map((p, index) => ({
-              srNo: p.srNo || index + 1,
-              code: p.code || 'N/A',
-              name: p.name || 'Unknown Product',
-              qty: p.qty || 1,
-              price: p.price || ''
-            }));
-          } catch (error) {
-            console.error('Error parsing products:', error);
-            console.error('Raw content:', data.choices[0].message.content);
-            products = [{ srNo: 1, code: 'Error', name: 'Could not parse products', qty: 1, price: '-' }];
-          }
-
-          // Add table
+          // Add table with the updated products (including prices)
           doc.autoTable({
             startY: 50,
             head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
-            body: products.map(p => [p.srNo, p.code, p.name, p.qty || 1, p.price]),
+            body: updatedProducts.map(p => [p.srNo, p.code, p.name, p.qty || 1, p.price]),
             styles: {
               fontSize: 10,
               cellPadding: 5,
@@ -395,7 +379,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             theme: 'grid'
           });
 
-          // Add terms and conditions after the table
+          // Add terms and conditions
           const finalY = doc.previousAutoTable.finalY || 50;
           doc.setFontSize(10);
           doc.setFont(undefined, 'bold');
@@ -420,15 +404,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
           // Load and add footer image
           try {
-            console.log('Loading footer from:', footerUrl);
             const footerBase64 = await loadImage(footerUrl);
-            const footerY = finalY + 100; // Adjust if needed
-            if (footerY > doc.internal.pageSize.height - 39) {
-              doc.addPage();
-              doc.addImage(footerBase64, 'JPEG', 0, doc.internal.pageSize.height - 39, 210, 39);
-            } else {
-              doc.addImage(footerBase64, 'JPEG', 0, doc.internal.pageSize.height - 39, 210, 39);
-            }
+            doc.addImage(footerBase64, 'JPEG', 0, doc.internal.pageSize.height - 39, 210, 39);
           } catch (error) {
             console.error('Error loading footer image:', error);
           }
@@ -436,11 +413,11 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           // Generate PDF blob
           const pdfBlob = doc.output('blob');
           
-          // Open PDF in new tab without switching to it
+          // Open PDF in new tab
           const pdfUrl = URL.createObjectURL(pdfBlob);
-          window.open(pdfUrl, '_blank', 'noopener');
-          
-          // Find and click reply button if not already in reply mode
+          window.open(pdfUrl, '_blank');
+
+          // Create email reply with attachment
           const replyButtons = document.querySelectorAll('[role="button"]');
           let replyButton;
           for (const button of replyButtons) {
@@ -449,12 +426,12 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               break;
             }
           }
+
           if (replyButton) {
             replyButton.click();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
 
-          // Find the compose area and attach PDF
           const composeArea = document.querySelector('[role="textbox"]');
           if (composeArea) {
             const message = `Please find attached the quotation for your inquiry.`;
@@ -478,7 +455,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           return { error: error.message };
         }
       },
-      args: [apiKey, headerUrl, footerUrl]
+      args: [updatedProducts, headerUrl, footerUrl]
     });
 
     if (result[0].result && result[0].result.error) {
@@ -487,8 +464,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
       showStatus('Quote generated successfully!', 'success');
     }
   } catch (error) {
-    console.error('Error in PDF generation:', error);
-    showError('Error: ' + error.message);
+    console.error('Error:', error);
+    showError(error.message);
   } finally {
     setButtonsLoading(false);
   }
@@ -510,4 +487,90 @@ chrome.storage.local.get(['theme'], (result) => {
   if (result.theme) {
     document.documentElement.setAttribute('data-theme', result.theme);
   }
+});
+
+// Update the showPriceInputDialog function
+async function showPriceInputDialog(products) {
+  return new Promise((resolve) => {
+    const container = document.getElementById('priceInputContainer');
+    const inputsContainer = document.getElementById('priceInputs');
+    inputsContainer.innerHTML = ''; // Clear existing inputs
+
+    // Create input fields for each product
+    products.forEach((product, index) => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'price-input-item';
+      
+      itemDiv.innerHTML = `
+        <label>
+          <strong>${product.name}</strong>
+          ${product.code ? `<br>Code: ${product.code}` : ''}
+          ${product.qty ? `<br>Quantity: ${product.qty}` : ''}
+        </label>
+        <input type="text" id="price_${index}" placeholder="Enter price">
+      `;
+      
+      inputsContainer.appendChild(itemDiv);
+    });
+
+    // Show the container
+    container.style.display = 'block';
+
+    // Increase popup size
+    document.body.classList.add('large-popup');
+
+    // Handle confirm button click
+    document.getElementById('confirmPrices').onclick = () => {
+      const updatedProducts = products.map((product, index) => ({
+        ...product,
+        price: document.getElementById(`price_${index}`).value
+      }));
+
+      // Hide the container
+      container.style.display = 'none';
+
+      // Reset popup size
+      document.body.classList.remove('large-popup');
+
+      resolve(updatedProducts);
+    };
+  });
+}
+
+// Add this function at the top of popup.js
+function keepPopupOpen() {
+  // Create an invisible input and focus it
+  const dummy = document.createElement('input');
+  dummy.style.position = 'absolute';
+  dummy.style.opacity = '0';
+  dummy.style.pointerEvents = 'none';
+  document.body.appendChild(dummy);
+  dummy.focus();
+}
+
+// Add this to the top of popup.js
+let keepAliveInterval;
+
+// Start keep-alive when popup opens
+document.addEventListener('DOMContentLoaded', () => {
+  keepAliveInterval = setInterval(() => {
+    chrome.runtime.getPlatformInfo(() => {
+      if (chrome.runtime.lastError) {
+        clearInterval(keepAliveInterval);
+      }
+    });
+  }, 25);
+});
+
+// Clear interval when popup closes
+window.addEventListener('unload', () => {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+});
+
+// Add back button functionality
+document.getElementById('backButton').addEventListener('click', () => {
+  document.getElementById('priceInputContainer').style.display = 'none';
+  document.body.classList.remove('large-popup');
 });
