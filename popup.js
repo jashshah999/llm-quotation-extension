@@ -296,13 +296,6 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
     const products = productsResult[0].result;
     
-    // Show price input dialog in the popup itself
-    const updatedProducts = await showPriceInputDialog(products);
-    
-    if (!updatedProducts) {
-      throw new Error('No prices entered');
-    }
-
     // Inject required libraries
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -318,11 +311,14 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
     const headerUrl = chrome.runtime.getURL('images/header.jpg');
     const footerUrl = chrome.runtime.getURL('images/footer.jpg');
 
-    // Generate PDF with updated products
+    // Generate PDF with products (not updated products)
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: async (updatedProducts, headerUrl, footerUrl) => {
+      func: async (products, headerUrl, footerUrl) => {
         try {
+          // Create a global variable to store the callback
+          window.__quotationCallback = null;
+
           // Helper function to load image as base64
           const loadImage = async (url) => {
             return new Promise((resolve, reject) => {
@@ -338,131 +334,259 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             });
           };
 
-          // Create PDF
-          const doc = new jspdf.jsPDF();
-          
-          // Load and add header image
-          try {
-            const headerBase64 = await loadImage(headerUrl);
-            doc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39);
-          } catch (error) {
-            console.error('Error loading header image:', error);
-          }
+          // Load images
+          const headerBase64 = await loadImage(headerUrl);
+          const footerBase64 = await loadImage(footerUrl);
 
-          // Add table with the updated products (including prices)
-          doc.autoTable({
-            startY: 50,
-            head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
-            body: updatedProducts.map(p => [p.srNo, p.code, p.name, p.qty || 1, p.price]),
-            styles: {
-              fontSize: 10,
-              cellPadding: 5,
-              lineColor: [0, 0, 0],
-              lineWidth: 0.1
-            },
-            headStyles: {
-              fillColor: [255, 255, 255],
-              textColor: [0, 0, 0],
-              fontStyle: 'bold',
-              halign: 'center'
-            },
-            bodyStyles: {
-              halign: 'center'
-            },
-            columnStyles: {
-              0: { cellWidth: 20 },
-              1: { cellWidth: 40 },
-              2: { cellWidth: 80 },
-              3: { cellWidth: 20 },
-              4: { cellWidth: 30 }
-            },
-            theme: 'grid'
-          });
+          // Create editable interface in the current tab
+          const editorDiv = document.createElement('div');
+          editorDiv.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          `;
 
-          // Add terms and conditions
-          const finalY = doc.previousAutoTable.finalY || 50;
-          doc.setFontSize(10);
-          doc.setFont(undefined, 'bold');
-          doc.text('Please Note Our Company Name:', 20, finalY + 20);
-          doc.setFont(undefined, 'normal');
-          doc.text('Bombay Tools Supplying Agency (1942).', 20, finalY + 30);
+          const editorContent = document.createElement('div');
+          editorContent.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+          `;
 
-          doc.setFont(undefined, 'bold');
-          doc.text('Terms and Conditions:', 20, finalY + 45);
-          doc.setFont(undefined, 'normal');
-          const terms = [
-            'GST: 18%',
-            'Packing and Forwarding: Nil',
-            'Freight: Extra At Actual.',
-            'Delivery: 7-10 Days',
-            'Payment: 100% Against Proforma Invoice.'
-          ];
+          // Create table
+          const table = document.createElement('table');
+          table.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+          `;
 
-          terms.forEach((term, index) => {
-            doc.text(term, 20, finalY + 55 + (index * 10));
-          });
+          // Add table header
+          const thead = `
+            <thead>
+              <tr>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Sr No</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Product Code</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Product Name</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Qty</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Price</th>
+              </tr>
+            </thead>
+          `;
 
-          // Load and add footer image
-          try {
-            const footerBase64 = await loadImage(footerUrl);
-            doc.addImage(footerBase64, 'JPEG', 0, doc.internal.pageSize.height - 39, 210, 39);
-          } catch (error) {
-            console.error('Error loading footer image:', error);
-          }
+          // Add table body with editable cells
+          const tbody = products.map(p => `
+            <tr>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.srNo}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.code}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.name}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.qty || 1}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.price}</td>
+            </tr>
+          `).join('');
 
-          // Generate PDF blob
-          const pdfBlob = doc.output('blob');
-          
-          // Open PDF in new tab
-          const pdfUrl = URL.createObjectURL(pdfBlob);
-          window.open(pdfUrl, '_blank');
+          table.innerHTML = thead + tbody;
+          editorContent.appendChild(table);
 
-          // Create email reply with attachment
-          const replyButtons = document.querySelectorAll('[role="button"]');
-          let replyButton;
-          for (const button of replyButtons) {
-            if (button.getAttribute('aria-label')?.toLowerCase().includes('reply')) {
-              replyButton = button;
-              break;
+          // Add save button
+          const saveBtn = document.createElement('button');
+          saveBtn.textContent = 'Save & Update Email';
+          saveBtn.style.cssText = `
+            background: #4299E1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 20px;
+            float: right;
+          `;
+
+          editorContent.appendChild(saveBtn);
+          editorDiv.appendChild(editorContent);
+          document.body.appendChild(editorDiv);
+
+          // Update the save button click handler
+          saveBtn.onclick = async () => {
+            try {
+              // Get updated data
+              const tableData = [];
+              table.querySelectorAll('tbody tr').forEach(row => {
+                const cells = row.cells;
+                tableData.push({
+                  srNo: cells[0].textContent,
+                  code: cells[1].textContent,
+                  name: cells[2].textContent,
+                  qty: cells[3].textContent,
+                  price: cells[4].textContent
+                });
+              });
+
+              // Generate new PDF
+              const newDoc = new jspdf.jsPDF();
+              
+              // Add header
+              newDoc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39);
+              
+              // Add updated table
+              newDoc.autoTable({
+                startY: 50,
+                head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
+                body: tableData.map(p => [p.srNo, p.code, p.name, p.qty, p.price]),
+                styles: {
+                  fontSize: 10,
+                  cellPadding: 5,
+                  lineColor: [0, 0, 0],
+                  lineWidth: 0.1
+                },
+                headStyles: {
+                  fillColor: [255, 255, 255],
+                  textColor: [0, 0, 0],
+                  fontStyle: 'bold',
+                  halign: 'center'
+                },
+                bodyStyles: {
+                  halign: 'center'
+                },
+                columnStyles: {
+                  0: { cellWidth: 20 },
+                  1: { cellWidth: 40 },
+                  2: { cellWidth: 80 },
+                  3: { cellWidth: 20 },
+                  4: { cellWidth: 30 }
+                },
+                theme: 'grid'
+              });
+
+              // Add terms and conditions
+              const finalY = newDoc.previousAutoTable.finalY || 50;
+              newDoc.setFontSize(10);
+              newDoc.setFont(undefined, 'bold');
+              newDoc.text('Please Note Our Company Name:', 20, finalY + 20);
+              newDoc.setFont(undefined, 'normal');
+              newDoc.text('Bombay Tools Supplying Agency (1942).', 20, finalY + 30);
+
+              newDoc.setFont(undefined, 'bold');
+              newDoc.text('Terms and Conditions:', 20, finalY + 45);
+              newDoc.setFont(undefined, 'normal');
+              const terms = [
+                'GST: 18%',
+                'Packing and Forwarding: Nil',
+                'Freight: Extra At Actual.',
+                'Delivery: 7-10 Days',
+                'Payment: 100% Against Proforma Invoice.'
+              ];
+
+              terms.forEach((term, index) => {
+                newDoc.text(term, 20, finalY + 55 + (index * 10));
+              });
+
+              // Add footer
+              newDoc.addImage(footerBase64, 'JPEG', 0, newDoc.internal.pageSize.height - 39, 210, 39);
+
+              // Remove editor
+              editorDiv.remove();
+
+              // Create email reply with attachment
+              const replyButtons = document.querySelectorAll('[role="button"]');
+              let replyButton;
+              for (const button of replyButtons) {
+                if (button.getAttribute('aria-label')?.toLowerCase().includes('reply')) {
+                  replyButton = button;
+                  break;
+                }
+              }
+
+              if (replyButton) {
+                replyButton.click();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+
+              const composeArea = document.querySelector('[role="textbox"]');
+              if (composeArea) {
+                const message = `Please find attached the quotation for your inquiry.`;
+                composeArea.innerHTML = message;
+                composeArea.dispatchEvent(new Event('input', { bubbles: true }));
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                const attachmentInput = document.querySelector('input[type="file"][name="Filedata"]');
+                if (attachmentInput) {
+                  const newPdfBlob = newDoc.output('blob');
+                  const file = new File([newPdfBlob], 'quotation.pdf', { type: 'application/pdf' });
+                  const dataTransfer = new DataTransfer();
+                  dataTransfer.items.add(file);
+                  attachmentInput.files = dataTransfer.files;
+                  attachmentInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+              }
+
+              // Notify the extension that we're done
+              if (window.__quotationCallback) {
+                window.__quotationCallback({ success: true });
+              }
+            } catch (error) {
+              console.error('Error in save handler:', error);
+              if (window.__quotationCallback) {
+                window.__quotationCallback({ error: error.message });
+              }
             }
-          }
+          };
 
-          if (replyButton) {
-            replyButton.click();
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-
-          const composeArea = document.querySelector('[role="textbox"]');
-          if (composeArea) {
-            const message = `Please find attached the quotation for your inquiry.`;
-            composeArea.innerHTML = message;
-            composeArea.dispatchEvent(new Event('input', { bubbles: true }));
-
-            // Attach the PDF
-            const attachmentInput = document.querySelector('input[type="file"][name="Filedata"]');
-            if (attachmentInput) {
-              const file = new File([pdfBlob], 'quotation.pdf', { type: 'application/pdf' });
-              const dataTransfer = new DataTransfer();
-              dataTransfer.items.add(file);
-              attachmentInput.files = dataTransfer.files;
-              attachmentInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }
-          
-          return { success: true };
+          // Return a promise that will be resolved when the save button is clicked
+          return new Promise((resolve) => {
+            window.__quotationCallback = resolve;
+          });
         } catch (error) {
           console.error('PDF generation error:', error);
           return { error: error.message };
         }
       },
-      args: [updatedProducts, headerUrl, footerUrl]
+      args: [products, headerUrl, footerUrl]
     });
 
-    if (result[0].result && result[0].result.error) {
-      showError(result[0].result.error);
-    } else {
-      showStatus('Quote generated successfully!', 'success');
-    }
+    // Keep checking the result
+    const checkResult = setInterval(async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const checkStatus = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => window.__quotationCallback !== null
+        });
+
+        if (!checkStatus[0].result) {
+          // Process is complete
+          clearInterval(checkResult);
+          if (result[0].result && result[0].result.error) {
+            showError(result[0].result.error);
+          } else {
+            showStatus('Quote generated successfully!', 'success');
+          }
+          setButtonsLoading(false);
+        }
+      } catch (error) {
+        clearInterval(checkResult);
+        console.error('Error checking result:', error);
+        showError(error.message);
+        setButtonsLoading(false);
+      }
+    }, 1000);
+
+    // Clear the interval after 30 seconds (timeout)
+    setTimeout(() => {
+      clearInterval(checkResult);
+    }, 30000);
   } catch (error) {
     console.error('Error:', error);
     showError(error.message);
@@ -487,90 +611,4 @@ chrome.storage.local.get(['theme'], (result) => {
   if (result.theme) {
     document.documentElement.setAttribute('data-theme', result.theme);
   }
-});
-
-// Update the showPriceInputDialog function
-async function showPriceInputDialog(products) {
-  return new Promise((resolve) => {
-    const container = document.getElementById('priceInputContainer');
-    const inputsContainer = document.getElementById('priceInputs');
-    inputsContainer.innerHTML = ''; // Clear existing inputs
-
-    // Create input fields for each product
-    products.forEach((product, index) => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'price-input-item';
-      
-      itemDiv.innerHTML = `
-        <label>
-          <strong>${product.name}</strong>
-          ${product.code ? `<br>Code: ${product.code}` : ''}
-          ${product.qty ? `<br>Quantity: ${product.qty}` : ''}
-        </label>
-        <input type="text" id="price_${index}" placeholder="Enter price">
-      `;
-      
-      inputsContainer.appendChild(itemDiv);
-    });
-
-    // Show the container
-    container.style.display = 'block';
-
-    // Increase popup size
-    document.body.classList.add('large-popup');
-
-    // Handle confirm button click
-    document.getElementById('confirmPrices').onclick = () => {
-      const updatedProducts = products.map((product, index) => ({
-        ...product,
-        price: document.getElementById(`price_${index}`).value
-      }));
-
-      // Hide the container
-      container.style.display = 'none';
-
-      // Reset popup size
-      document.body.classList.remove('large-popup');
-
-      resolve(updatedProducts);
-    };
-  });
-}
-
-// Add this function at the top of popup.js
-function keepPopupOpen() {
-  // Create an invisible input and focus it
-  const dummy = document.createElement('input');
-  dummy.style.position = 'absolute';
-  dummy.style.opacity = '0';
-  dummy.style.pointerEvents = 'none';
-  document.body.appendChild(dummy);
-  dummy.focus();
-}
-
-// Add this to the top of popup.js
-let keepAliveInterval;
-
-// Start keep-alive when popup opens
-document.addEventListener('DOMContentLoaded', () => {
-  keepAliveInterval = setInterval(() => {
-    chrome.runtime.getPlatformInfo(() => {
-      if (chrome.runtime.lastError) {
-        clearInterval(keepAliveInterval);
-      }
-    });
-  }, 25);
-});
-
-// Clear interval when popup closes
-window.addEventListener('unload', () => {
-  if (keepAliveInterval) {
-    clearInterval(keepAliveInterval);
-  }
-});
-
-// Add back button functionality
-document.getElementById('backButton').addEventListener('click', () => {
-  document.getElementById('priceInputContainer').style.display = 'none';
-  document.body.classList.remove('large-popup');
 });
