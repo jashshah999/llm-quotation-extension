@@ -1,18 +1,23 @@
-# Gmail Smart Reply Extension
+# AI Chat History Extension
 
-## Setup
-1. Clone the repository
-2. Copy `config.example.js` to `config.js`
-3. Add your OpenAI API key to `config.js`
-4. Load the extension in Chrome
+A Chrome extension that helps you manage and navigate your AI chat history.
 
-## Development
-- Never commit `config.js`
-- Always use `config.example.js` for the template
-- Keep API keys in environment variables for production
+## Features
 
-## Production Deployment
-For production, use environment variables and a build process:
-1. Use dotenv for local development
-2. Set up CI/CD to inject API keys during build
-3. Use production secrets management in deployment# llm-quotation-extension
+- Save and organize AI chat conversations
+- Easy navigation through chat history
+- Support for multiple AI platforms
+
+## Installation
+
+### From Chrome Web Store
+1. Visit the [Chrome Web Store](link-to-your-extension)
+2. Click "Add to Chrome"
+3. Follow the prompts to install
+
+### Local Development Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://
