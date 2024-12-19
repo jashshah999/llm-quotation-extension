@@ -445,28 +445,45 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                 head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
                 body: tableData.map(p => [p.srNo, p.code, p.name, p.qty, p.price]),
                 styles: {
-                  fontSize: 10,
-                  cellPadding: 5,
+                  fontSize: 8,  // Further reduced font size
+                  cellPadding: 2,  // Minimal padding
                   lineColor: [0, 0, 0],
-                  lineWidth: 0.1
+                  lineWidth: 0.1,
+                  overflow: 'linebreak'
                 },
                 headStyles: {
                   fillColor: [255, 255, 255],
                   textColor: [0, 0, 0],
                   fontStyle: 'bold',
-                  halign: 'center'
+                  halign: 'center',
+                  fontSize: 8
                 },
                 bodyStyles: {
                   halign: 'center'
                 },
                 columnStyles: {
-                  0: { cellWidth: 20 },
-                  1: { cellWidth: 40 },
-                  2: { cellWidth: 80 },
-                  3: { cellWidth: 20 },
-                  4: { cellWidth: 30 }
+                  0: { cellWidth: 10 },  // Sr No
+                  1: { cellWidth: 25 },  // Product Code
+                  2: { cellWidth: 55 },  // Product Name
+                  3: { cellWidth: 10 },  // Qty
+                  4: { cellWidth: 15 }   // Price
                 },
-                theme: 'grid'
+                theme: 'grid',
+                tableWidth: 115,  // Fixed total width
+                margin: { left: 30, right: 30 },  // Increased margins
+                didParseCell: function(data) {
+                  // Handle long text in Product Name column
+                  if (data.column.index === 2) {
+                    data.cell.styles.overflow = 'linebreak';
+                    data.cell.styles.cellWidth = 55;
+                  }
+                },
+                willDrawCell: function(data) {
+                  // Ensure text fits by reducing font size if needed
+                  if (data.column.index === 2 && data.cell.text.length > 50) {
+                    data.cell.styles.fontSize = 7;
+                  }
+                }
               });
 
               // Add terms and conditions
