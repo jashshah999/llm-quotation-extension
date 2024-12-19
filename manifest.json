@@ -1,37 +1,37 @@
 {
   "manifest_version": 3,
-  "name": "Gmail Smart Reply",
+  "name": "Gmail Quote Generator",
   "version": "1.0",
-  "description": "Smart reply for Gmail using OpenAI",
+  "description": "Generate quotes from Gmail emails",
   "permissions": [
     "activeTab",
     "scripting",
     "storage"
   ],
   "host_permissions": [
-    "https://mail.google.com/*",
-    "https://api.openai.com/*"
+    "https://mail.google.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
-      "js": ["config/config.js", "content.js"]
+      "js": ["content.js"]
     }
   ],
-  "web_accessible_resources": [{
-    "resources": [
-      "lib/jspdf.umd.min.js",
-      "lib/jspdf.plugin.autotable.min.js",
-      "images/header.jpg",
-      "images/footer.jpg",
-      "quotation.html"
-    ],
-    "matches": ["https://mail.google.com/*"]
-  }],
-  "background": {
-    "service_worker": "background.js"
-  }
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/header.jpg",
+        "images/footer.jpg",
+        "lib/jspdf.umd.min.js",
+        "lib/jspdf.plugin.autotable.min.js"
+      ],
+      "matches": ["https://mail.google.com/*"]
+    }
+  ]
 }
