@@ -398,6 +398,97 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           table.innerHTML = thead + tbody;
           editorContent.appendChild(table);
 
+          // Add table controls div above the table
+          const tableControls = document.createElement('div');
+          tableControls.style.cssText = `
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            gap: 10px;
+          `;
+
+          // Add Row button
+          const addRowBtn = document.createElement('button');
+          addRowBtn.textContent = '+ Add Row';
+          addRowBtn.style.cssText = `
+            background: #48BB78;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+          `;
+
+          // Delete Row button
+          const deleteRowBtn = document.createElement('button');
+          deleteRowBtn.textContent = '- Delete Row';
+          deleteRowBtn.style.cssText = `
+            background: #F56565;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+          `;
+
+          // Add row handler
+          addRowBtn.onclick = () => {
+            const tbody = table.querySelector('tbody');
+            const newRow = document.createElement('tr');
+            const lastRow = tbody.lastElementChild;
+            const lastSrNo = lastRow ? parseInt(lastRow.cells[0].textContent) || 0 : 0;
+            
+            newRow.innerHTML = `
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${lastSrNo + 1}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">1</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+            `;
+            tbody.appendChild(newRow);
+          };
+
+          // Delete row handler
+          deleteRowBtn.onclick = () => {
+            const tbody = table.querySelector('tbody');
+            if (tbody.children.length > 1) {
+              tbody.removeChild(tbody.lastElementChild);
+            }
+          };
+
+          // Add buttons to controls
+          tableControls.appendChild(addRowBtn);
+          tableControls.appendChild(deleteRowBtn);
+
+          // Add controls before table
+          editorContent.appendChild(tableControls);
+          editorContent.appendChild(table);
+
+          // Update table styles for better UX
+          table.style.cssText += `
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+          `;
+
+          // Add hover effect to table rows
+          const style = document.createElement('style');
+          style.textContent = `
+            #quotationTable tr:hover {
+              background-color: #f5f5f5;
+            }
+            #quotationTable td:focus {
+              outline: 2px solid #4299E1;
+              outline-offset: -2px;
+            }
+          `;
+          document.head.appendChild(style);
+          table.id = 'quotationTable';
+
           // Add save button
           const saveBtn = document.createElement('button');
           saveBtn.textContent = 'Save & Update Email';
