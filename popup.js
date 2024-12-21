@@ -410,10 +410,35 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             cursor: pointer;
             font-weight: 500;
             margin-top: 20px;
+            margin-left: 10px;
             float: right;
           `;
 
+          // Add cancel button
+          const cancelBtn = document.createElement('button');
+          cancelBtn.textContent = 'Cancel';
+          cancelBtn.style.cssText = `
+            background: #E53E3E;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 20px;
+            float: right;
+          `;
+
+          // Add cancel button click handler
+          cancelBtn.onclick = () => {
+            editorDiv.remove();
+            if (window.__quotationCallback) {
+              window.__quotationCallback({ success: false, cancelled: true });
+            }
+          };
+
           editorContent.appendChild(saveBtn);
+          editorContent.appendChild(cancelBtn);
           editorDiv.appendChild(editorContent);
           document.body.appendChild(editorDiv);
 
@@ -495,6 +520,11 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               // Add footer
               newDoc.addImage(footerBase64, 'JPEG', 0, newDoc.internal.pageSize.height - 39, 210, 39);
 
+              // Create PDF blob and open in new tab
+              const newPdfBlob = newDoc.output('blob');
+              const pdfUrl = URL.createObjectURL(newPdfBlob);
+              window.open(pdfUrl, '_blank');  // This will open PDF directly in the browser
+
               // Remove editor
               editorDiv.remove();
 
@@ -523,7 +553,6 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
                 const attachmentInput = document.querySelector('input[type="file"][name="Filedata"]');
                 if (attachmentInput) {
-                  const newPdfBlob = newDoc.output('blob');
                   const file = new File([newPdfBlob], 'quotation.pdf', { type: 'application/pdf' });
                   const dataTransfer = new DataTransfer();
                   dataTransfer.items.add(file);
@@ -531,6 +560,11 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                   attachmentInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
               }
+
+              // Clean up the object URL after a delay to ensure it's loaded
+              setTimeout(() => {
+                URL.revokeObjectURL(pdfUrl);
+              }, 5000);
 
               // Notify the extension that we're done
               if (window.__quotationCallback) {
