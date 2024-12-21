@@ -148,10 +148,17 @@ document.getElementById('replyButton').addEventListener('click', async () => {
           model: "gpt-3.5-turbo",
           messages: [{
             role: "system",
-            content: `You are a professional measurement instruments sales assistant. When replying to emails:
+            content: `You are a professional measurement instruments sales assistant. 
+              First, extract the company name from the email signature or header.
+              When replying to emails:
               1. Begin with a brief greeting using the sender's name - if the sender is male add "sir after name else add madam"
               2. Start with "We are pleased to quote the following:"
-              3. For each product mentioned, format as:
+              3. Return the response in this JSON format:
+              {
+                "companyName": "extracted company name",
+                "content": "the rest of your formatted response"
+              }
+              4. In the content, for each product mentioned, format as:
               
               Product Code: [code]
               Product Name: [name]
@@ -160,18 +167,10 @@ document.getElementById('replyButton').addEventListener('click', async () => {
               Price:
               Delivery Time: 
               If you dont know any of those just skip it except price and delivery time -have those regardless and ENUMERATE all the products 
-              4. If multiple products, list each one in the same format with a blank line between them
-              5. End with a simple "Looking forward to your response."
+              5. If multiple products, list each one in the same format with a blank line between them
+              6. End with a simple "Looking forward to your response."
               
-              Keep the tone professional but concise. Focus only on the product details. No unnecessary text or pleasantries.
-              
-              Do not include:
-              - Long introductions
-              - Marketing language
-              - Regards/signature blocks
-              - Any price or delivery estimates
-              
-              Always leave price and delivery time with blank lines for manual filling.`
+              Keep the tone professional but concise. Focus only on the product details. No unnecessary text or pleasantries.`
           }, {
             role: "user",
             content: `Please draft a professional reply to this email. Original email content: ${emailContent}`
@@ -189,37 +188,68 @@ document.getElementById('replyButton').addEventListener('click', async () => {
  
       const data = await response.json();
       console.log('API response received:', data);
-      const generatedReply = data.choices[0].message.content;
-      
-      // Format the reply with proper spacing and structure
-      const formattedReply = formatEmailReply(generatedReply);
-      console.log('Formatted reply:', formattedReply);
+      try {
+        const generatedReply = data.choices[0].message.content;
+        // Format the reply with proper spacing and structure
+        const formattedReply = formatEmailReply(generatedReply);
+        console.log('Formatted reply:', formattedReply);
  
-      // More reliable way to find and insert into reply box
-      return new Promise((resolve) => {
-        let attempts = 0;
-        const maxAttempts = 20;
-        
-        const insertReplyText = () => {
-          const messageBody = document.querySelector('[role="textbox"]');
-          console.log('Attempt', attempts + 1, 'to find textbox');
+        // More reliable way to find and insert into reply box
+        return new Promise((resolve) => {
+          let attempts = 0;
+          const maxAttempts = 20;
           
-          if (messageBody) {
-            console.log('Found textbox, inserting reply');
-            messageBody.innerHTML = formattedReply;
-            messageBody.dispatchEvent(new Event('input', { bubbles: true }));
-            resolve({ success: true });
-          } else if (attempts < maxAttempts) {
-            attempts++;
-            setTimeout(insertReplyText, 500);
-          } else {
-            resolve({ error: 'Could not find reply textbox after multiple attempts.' });
-          }
-        };
+          const insertReplyText = () => {
+            const messageBody = document.querySelector('[role="textbox"]');
+            console.log('Attempt', attempts + 1, 'to find textbox');
+            
+            if (messageBody) {
+              console.log('Found textbox, inserting reply');
+              messageBody.innerHTML = formattedReply;
+              messageBody.dispatchEvent(new Event('input', { bubbles: true }));
+              resolve({ success: true });
+            } else if (attempts < maxAttempts) {
+              attempts++;
+              setTimeout(insertReplyText, 500);
+            } else {
+              resolve({ error: 'Could not find reply textbox after multiple attempts.' });
+            }
+          };
  
-        setTimeout(insertReplyText, 1000);
-      });
+          setTimeout(insertReplyText, 1000);
+        });
+      } catch (error) {
+        console.error('Error parsing API response:', error);
+        const generatedReply = data.choices[0].message.content;
+        // Format the reply with proper spacing and structure
+        const formattedReply = formatEmailReply(generatedReply);
+        console.log('Formatted reply:', formattedReply);
  
+        // More reliable way to find and insert into reply box
+        return new Promise((resolve) => {
+          let attempts = 0;
+          const maxAttempts = 20;
+          
+          const insertReplyText = () => {
+            const messageBody = document.querySelector('[role="textbox"]');
+            console.log('Attempt', attempts + 1, 'to find textbox');
+            
+            if (messageBody) {
+              console.log('Found textbox, inserting reply');
+              messageBody.innerHTML = formattedReply;
+              messageBody.dispatchEvent(new Event('input', { bubbles: true }));
+              resolve({ success: true });
+            } else if (attempts < maxAttempts) {
+              attempts++;
+              setTimeout(insertReplyText, 500);
+            } else {
+              resolve({ error: 'Could not find reply textbox after multiple attempts.' });
+            }
+          };
+ 
+          setTimeout(insertReplyText, 1000);
+        });
+      }
     } catch (error) {
       console.error('API or insertion error:', error);
       return { error: 'API Error: ' + error.message };
@@ -363,6 +393,36 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             overflow-y: auto;
           `;
 
+          // Create company name input field
+          const companyDiv = document.createElement('div');
+          companyDiv.style.cssText = `
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+          `;
+
+          const companyLabel = document.createElement('label');
+          companyLabel.textContent = 'Company Name: ';
+          companyLabel.style.cssText = `
+            font-weight: 500;
+            margin-right: 10px;
+          `;
+
+          const companyInput = document.createElement('input');
+          companyInput.type = 'text';
+          companyInput.value = ''; // Will be populated from API response
+          companyInput.style.cssText = `
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+          `;
+
+          companyDiv.appendChild(companyLabel);
+          companyDiv.appendChild(companyInput);
+          editorContent.appendChild(companyDiv);
+
           // Create table
           const table = document.createElement('table');
           table.style.cssText = `
@@ -384,8 +444,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             </thead>
           `;
 
-          // Add table body with editable cells
-          const tbody = products.map(p => `
+          // Modify the tbody creation to always have at least 3 rows
+          let tbodyContent = products.map(p => `
             <tr>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.srNo}</td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.code}</td>
@@ -395,7 +455,21 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             </tr>
           `).join('');
 
-          table.innerHTML = thead + tbody;
+          // Add empty rows if needed to reach minimum of 3
+          const currentRows = products.length;
+          for (let i = currentRows; i < 3; i++) {
+            tbodyContent += `
+              <tr>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${i + 1}</td>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">1</td>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
+              </tr>
+            `;
+          }
+
+          table.innerHTML = thead + tbodyContent;
           editorContent.appendChild(table);
 
           // Add table controls div above the table
@@ -555,9 +629,14 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               // Add header
               newDoc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39);
               
-              // Add updated table
+              // Add company name
+              newDoc.setFontSize(12);
+              newDoc.setFont(undefined, 'bold');
+              newDoc.text(`To: ${companyInput.value}`, 20, 45);
+              
+              // Add updated table (adjust startY to account for company name)
               newDoc.autoTable({
-                startY: 50,
+                startY: 55,  // Increased from 50 to make room for company name
                 head: [['Sr No', 'Product Code', 'Product Name', 'Qty', 'Price']],
                 body: tableData.map(p => [p.srNo, p.code, p.name, p.qty, p.price]),
                 styles: {
