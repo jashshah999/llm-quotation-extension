@@ -34,7 +34,51 @@ function showError(message) {
   showStatus(message, 'error');
 }
 
+// Settings modal functionality
+document.getElementById('settingsButton').addEventListener('click', () => {
+  document.getElementById('settingsModal').style.display = 'block';
+});
+
+document.querySelector('.close-modal').addEventListener('click', () => {
+  document.getElementById('settingsModal').style.display = 'none';
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', (event) => {
+  const modal = document.getElementById('settingsModal');
+  if (event.target === modal) {
+    modal.style.display = 'none';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load saved API key
+  const { apiKey } = await chrome.storage.local.get('apiKey');
+  if (apiKey) {
+    document.getElementById('apiKey').value = apiKey;
+  }
+});
+
+// Update API key save handler
+document.getElementById('saveApiKey').addEventListener('click', async () => {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    showError('Please enter an API key');
+    return;
+  }
+  
+  await chrome.storage.local.set({ apiKey });
+  showStatus('API key saved successfully!', 'success');
+  document.getElementById('settingsModal').style.display = 'none';
+});
+
 document.getElementById('replyButton').addEventListener('click', async () => {
+  const { apiKey } = await chrome.storage.local.get('apiKey');
+  if (!apiKey) {
+    showError('Please enter your OpenAI API key in the settings');
+    return;
+  }
+  
   setButtonsLoading(true);
   showStatus('Generating reply...', 'success');
   console.log('Reply button clicked in popup');
@@ -148,17 +192,10 @@ document.getElementById('replyButton').addEventListener('click', async () => {
           model: "gpt-3.5-turbo",
           messages: [{
             role: "system",
-            content: `You are a professional measurement instruments sales assistant. 
-              First, extract the company name from the email signature or header.
-              When replying to emails:
+            content: `You are a professional measurement instruments sales assistant. When replying to emails:
               1. Begin with a brief greeting using the sender's name - if the sender is male add "sir after name else add madam"
               2. Start with "We are pleased to quote the following:"
-              3. Return the response in this JSON format:
-              {
-                "companyName": "extracted company name",
-                "content": "the rest of your formatted response"
-              }
-              4. In the content, for each product mentioned, format as:
+              3. For each product mentioned, format as:
               
               Product Code: [code]
               Product Name: [name]
@@ -167,10 +204,20 @@ document.getElementById('replyButton').addEventListener('click', async () => {
               Price:
               Delivery Time: 
               If you dont know any of those just skip it except price and delivery time -have those regardless and ENUMERATE all the products 
-              5. If multiple products, list each one in the same format with a blank line between them
-              6. End with a simple "Looking forward to your response."
+              4. If multiple products, list each one in the same format with a blank line between them
+              5. End with a simple "Looking forward to your response."
               
-              Keep the tone professional but concise. Focus only on the product details. No unnecessary text or pleasantries.`
+              Keep the tone professional but concise. Focus only on the product details. No unnecessary text or pleasantries.
+              
+              Do not include:
+              - Long introductions
+              - Marketing language
+              - Regards/signature blocks
+              - Any price or delivery estimates
+              
+              Always leave price and delivery time with blank lines for manual filling.
+              
+              Do not return JSON format, return plain text formatted as specified above.`
           }, {
             role: "user",
             content: `Please draft a professional reply to this email. Original email content: ${emailContent}`
@@ -179,77 +226,45 @@ document.getElementById('replyButton').addEventListener('click', async () => {
           max_tokens: 1000
         })
       });
- 
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error:', errorText);
         return { error: `API Error: ${response.status} - ${errorText}` };
       }
- 
+
       const data = await response.json();
       console.log('API response received:', data);
-      try {
-        const generatedReply = data.choices[0].message.content;
-        // Format the reply with proper spacing and structure
-        const formattedReply = formatEmailReply(generatedReply);
-        console.log('Formatted reply:', formattedReply);
- 
-        // More reliable way to find and insert into reply box
-        return new Promise((resolve) => {
-          let attempts = 0;
-          const maxAttempts = 20;
+      const generatedReply = data.choices[0].message.content;
+      
+      // Format the reply with proper spacing and structure
+      const formattedReply = formatEmailReply(generatedReply);
+      console.log('Formatted reply:', formattedReply);
+
+      // More reliable way to find and insert into reply box
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        const insertReplyText = () => {
+          const messageBody = document.querySelector('[role="textbox"]');
+          console.log('Attempt', attempts + 1, 'to find textbox');
           
-          const insertReplyText = () => {
-            const messageBody = document.querySelector('[role="textbox"]');
-            console.log('Attempt', attempts + 1, 'to find textbox');
-            
-            if (messageBody) {
-              console.log('Found textbox, inserting reply');
-              messageBody.innerHTML = formattedReply;
-              messageBody.dispatchEvent(new Event('input', { bubbles: true }));
-              resolve({ success: true });
-            } else if (attempts < maxAttempts) {
-              attempts++;
-              setTimeout(insertReplyText, 500);
-            } else {
-              resolve({ error: 'Could not find reply textbox after multiple attempts.' });
-            }
-          };
- 
-          setTimeout(insertReplyText, 1000);
-        });
-      } catch (error) {
-        console.error('Error parsing API response:', error);
-        const generatedReply = data.choices[0].message.content;
-        // Format the reply with proper spacing and structure
-        const formattedReply = formatEmailReply(generatedReply);
-        console.log('Formatted reply:', formattedReply);
- 
-        // More reliable way to find and insert into reply box
-        return new Promise((resolve) => {
-          let attempts = 0;
-          const maxAttempts = 20;
-          
-          const insertReplyText = () => {
-            const messageBody = document.querySelector('[role="textbox"]');
-            console.log('Attempt', attempts + 1, 'to find textbox');
-            
-            if (messageBody) {
-              console.log('Found textbox, inserting reply');
-              messageBody.innerHTML = formattedReply;
-              messageBody.dispatchEvent(new Event('input', { bubbles: true }));
-              resolve({ success: true });
-            } else if (attempts < maxAttempts) {
-              attempts++;
-              setTimeout(insertReplyText, 500);
-            } else {
-              resolve({ error: 'Could not find reply textbox after multiple attempts.' });
-            }
-          };
- 
-          setTimeout(insertReplyText, 1000);
-        });
-      }
+          if (messageBody) {
+            console.log('Found textbox, inserting reply');
+            messageBody.innerHTML = formattedReply;
+            messageBody.dispatchEvent(new Event('input', { bubbles: true }));
+            resolve({ success: true });
+          } else if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(insertReplyText, 500);
+          } else {
+            resolve({ error: 'Could not find reply textbox after multiple attempts.' });
+          }
+        };
+
+        setTimeout(insertReplyText, 1000);
+      });
     } catch (error) {
       console.error('API or insertion error:', error);
       return { error: 'API Error: ' + error.message };
@@ -267,6 +282,11 @@ document.getElementById('replyButton').addEventListener('click', async () => {
  
  // Update the quotePdfButton click handler
 document.getElementById('quotePdfButton').addEventListener('click', async () => {
+  const { apiKey } = await chrome.storage.local.get('apiKey');
+  if (!apiKey) {
+    showError('Please enter your OpenAI API key in the settings');
+    return;
+  }
   try {
     setButtonsLoading(true);
     showStatus('Generating quote...', 'success');
