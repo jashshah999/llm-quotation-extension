@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gmail Smart Reply",
-  "version": "1.0",
+  "version": "1.2",
   "description": "Smart reply for Gmail using OpenAI",
   "icons": {
     "16": "icons/icon16.png",
