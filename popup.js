@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { apiKey } = await chrome.storage.local.get('apiKey');
   if (apiKey) {
     document.getElementById('apiKey').value = apiKey;
+    CONFIG.OPENAI_API_KEY = apiKey;  // Update CONFIG object with stored key
   }
 });
 
@@ -67,14 +68,15 @@ document.getElementById('saveApiKey').addEventListener('click', async () => {
     return;
   }
   
+  // Save to both local storage and CONFIG object
   await chrome.storage.local.set({ apiKey });
+  CONFIG.OPENAI_API_KEY = apiKey;
   showStatus('API key saved successfully!', 'success');
   document.getElementById('settingsModal').style.display = 'none';
 });
 
 document.getElementById('replyButton').addEventListener('click', async () => {
-  const { apiKey } = await chrome.storage.local.get('apiKey');
-  if (!apiKey) {
+  if (!CONFIG.OPENAI_API_KEY) {
     showError('Please enter your OpenAI API key in the settings');
     return;
   }
@@ -85,12 +87,9 @@ document.getElementById('replyButton').addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    // First get the API key from the current context
-    const apiKey = CONFIG.OPENAI_API_KEY;
-    
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      args: [apiKey], // Pass the API key as an argument
+      args: [CONFIG.OPENAI_API_KEY],
       function: generateAndInsertReply,
     });
  
@@ -282,8 +281,7 @@ document.getElementById('replyButton').addEventListener('click', async () => {
  
  // Update the quotePdfButton click handler
 document.getElementById('quotePdfButton').addEventListener('click', async () => {
-  const { apiKey } = await chrome.storage.local.get('apiKey');
-  if (!apiKey) {
+  if (!CONFIG.OPENAI_API_KEY) {
     showError('Please enter your OpenAI API key in the settings');
     return;
   }
@@ -292,7 +290,6 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
     showStatus('Generating quote...', 'success');
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const apiKey = CONFIG.OPENAI_API_KEY;
 
     // Get products first
     const productsResult = await chrome.scripting.executeScript({
@@ -341,7 +338,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
         }
         return products;
       },
-      args: [apiKey]
+      args: [CONFIG.OPENAI_API_KEY]
     });
 
     const products = productsResult[0].result;
