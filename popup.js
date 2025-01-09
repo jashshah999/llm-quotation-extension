@@ -568,6 +568,17 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             padding: 10px;
             background: #f8f9fa;
             border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          `;
+
+          // Left side - Quotation number
+          const quotationLeftDiv = document.createElement('div');
+          quotationLeftDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
           `;
 
           const quotationLabel = document.createElement('label');
@@ -604,9 +615,54 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
           quotationInputWrapper.appendChild(quotationInput);
           quotationInputWrapper.appendChild(quotationEditIcon);
+          quotationLeftDiv.appendChild(quotationLabel);
+          quotationLeftDiv.appendChild(quotationInputWrapper);
 
-          quotationDiv.appendChild(quotationLabel);
-          quotationDiv.appendChild(quotationInputWrapper);
+          // Right side - Date
+          const dateDiv = document.createElement('div');
+          dateDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          `;
+
+          const dateLabel = document.createElement('label');
+          dateLabel.textContent = 'Date: ';
+          dateLabel.style.cssText = `
+            font-weight: 500;
+            margin-right: 10px;
+          `;
+
+          const dateInput = document.createElement('input');
+          dateInput.type = 'text';
+          const today = new Date().toLocaleDateString('en-GB'); // Format as DD/MM/YYYY
+          dateInput.value = today;
+          dateInput.style.cssText = `
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 120px;
+          `;
+
+          const dateInputWrapper = document.createElement('div');
+          dateInputWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          `;
+
+          const dateEditIcon = document.createElement('span');
+          dateEditIcon.innerHTML = quotationEditIcon.innerHTML; // Reuse the same edit icon
+          dateEditIcon.style.color = '#718096';
+
+          dateInputWrapper.appendChild(dateInput);
+          dateInputWrapper.appendChild(dateEditIcon);
+          dateDiv.appendChild(dateLabel);
+          dateDiv.appendChild(dateInputWrapper);
+
+          // Add both sections to the quotation div
+          quotationDiv.appendChild(quotationLeftDiv);
+          quotationDiv.appendChild(dateDiv);
 
           // Insert quotation div before company div in the editor
           editorContent.insertBefore(quotationDiv, companyDiv);
@@ -901,6 +957,11 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               newDoc.setFontSize(12);
               newDoc.setFont(undefined, 'bold');
               newDoc.text(`Quotation No: ${quotationInput.value}`, 20, 45);
+
+              // Add date
+              newDoc.setFontSize(12);
+              newDoc.setFont(undefined, 'bold');
+              newDoc.text(`Date: ${dateInput.value}`, 150, 45);
 
               // Move company name down
               newDoc.text(`To: ${companyInput.value}`, 20, 55);
