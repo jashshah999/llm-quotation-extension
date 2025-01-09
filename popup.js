@@ -203,8 +203,15 @@ document.getElementById('replyButton').addEventListener('click', async () => {
               Price:
               If you dont know any of those just skip it except price and delivery time -have those regardless and ENUMERATE all the products so have 1,2,3 and so on - have numbers for each product. 
               4. If multiple products, list each one in the same format with a blank line between them
-              5. Add delivery time that needs to be filled. only one - not after each product. 
-              5. End with a simple "Looking forward to your response."
+              5. Add delivery time that needs to be filled. only one - not after each product. this is importnat - only after all products are listed. 
+              6. Add these three lines in this exact order:
+                 GST 18% 
+                 Freight extra at actual
+                 Payment 100% against Proforma Invoice.
+
+              7. End with ONLY "Looking forward to your response." as the final line.
+              DO NOT add any other closing lines, thank you notes, or signatures.
+              The response MUST end with exactly "Looking forward to your response." - no variations.
               
               Keep the tone professional but concise. Focus only on the product details. No unnecessary text or pleasantries.
               
@@ -213,10 +220,15 @@ document.getElementById('replyButton').addEventListener('click', async () => {
               - Marketing language
               - Regards/signature blocks
               - Any price or delivery estimates
+              - Any closing lines after "Looking forward to your response."
+              - Thank you notes
+              - Additional signatures
               
-              Always leave price with a blank line for manual filling. dont add a blank line  after price - keep it as is
-             
-              Do not return JSON format, return plain text formatted as specified above.`
+              Always leave price with a blank line for manual filling. dont add a blank line after price - keep it as is
+              
+              Do not return JSON format, return plain text formatted as specified above.
+              
+              IMPORTANT: The email must end with exactly one instance of "Looking forward to your response." - no duplicates.`
           }, {
             role: "user",
             content: `Please draft a professional reply to this email. Original email content: ${emailContent}`
