@@ -549,6 +549,56 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           companyDiv.appendChild(companyInputWrapper);
           editorContent.appendChild(companyDiv);
 
+          // Add quotation number input field to the editor
+          const quotationDiv = document.createElement('div');
+          quotationDiv.style.cssText = `
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+          `;
+
+          const quotationLabel = document.createElement('label');
+          quotationLabel.textContent = 'Quotation No: ';
+          quotationLabel.style.cssText = `
+            font-weight: 500;
+            margin-right: 10px;
+          `;
+
+          const quotationInput = document.createElement('input');
+          quotationInput.type = 'text';
+          quotationInput.value = 'QTN/' + new Date().getFullYear() + '/' + String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+          quotationInput.style.cssText = `
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+          `;
+
+          const quotationInputWrapper = document.createElement('div');
+          quotationInputWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          `;
+
+          const quotationEditIcon = document.createElement('span');
+          quotationEditIcon.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+            </svg>
+          `;
+          quotationEditIcon.style.color = '#718096';
+
+          quotationInputWrapper.appendChild(quotationInput);
+          quotationInputWrapper.appendChild(quotationEditIcon);
+
+          quotationDiv.appendChild(quotationLabel);
+          quotationDiv.appendChild(quotationInputWrapper);
+
+          // Insert quotation div before company div in the editor
+          editorContent.insertBefore(quotationDiv, companyDiv);
+
           // Create table
           const table = document.createElement('table');
           table.style.cssText = `
@@ -834,15 +884,18 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               
               // Add header
               newDoc.addImage(headerBase64, 'JPEG', 0, 0, 210, 39);
-              
-              // Add company name
+
+              // Add quotation number
               newDoc.setFontSize(12);
               newDoc.setFont(undefined, 'bold');
-              newDoc.text(`To: ${companyInput.value}`, 20, 45);
-              
-              // Add updated table (adjust startY to account for company name)
+              newDoc.text(`Quotation No: ${quotationInput.value}`, 20, 45);
+
+              // Move company name down
+              newDoc.text(`To: ${companyInput.value}`, 20, 55);
+
+              // Update table position
               newDoc.autoTable({
-                startY: 55,
+                startY: 65,  // Adjusted to account for quotation number
                 head: [['Sr No', 'Description', 'Make', 'Code/Size', 'Rate', 'Remark']],
                 body: tableData.map(p => [p.srNo, p.description, p.make, p.codeSize, p.rate, p.remark]),
                 styles: {
@@ -872,7 +925,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               });
 
               // Add terms and conditions
-              const finalY = newDoc.previousAutoTable.finalY || 50;
+              const finalY = newDoc.previousAutoTable.finalY || 60;
               
               newDoc.setFontSize(10);
               newDoc.setFont(undefined, 'bold');
