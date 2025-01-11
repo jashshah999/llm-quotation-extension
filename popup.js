@@ -1068,10 +1068,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               // Add footer
               newDoc.addImage(footerBase64, 'JPEG', 0, newDoc.internal.pageSize.height - 39, 210, 39);
 
-              // Create PDF blob and open in new tab
-              const newPdfBlob = newDoc.output('blob');
-              const pdfUrl = URL.createObjectURL(newPdfBlob);
-              window.open(pdfUrl, '_blank');  // This will open PDF directly in the browser
+              // Just open in new tab
+              window.open(URL.createObjectURL(newDoc.output('blob')), '_blank');
 
               // Remove editor
               editorDiv.remove();
@@ -1101,18 +1099,13 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
                 const attachmentInput = document.querySelector('input[type="file"][name="Filedata"]');
                 if (attachmentInput) {
-                  const file = new File([newPdfBlob], 'quotation.pdf', { type: 'application/pdf' });
+                  const file = new File([newDoc.output('blob')], `quotation_${companyInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')}.pdf`);
                   const dataTransfer = new DataTransfer();
                   dataTransfer.items.add(file);
                   attachmentInput.files = dataTransfer.files;
                   attachmentInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
               }
-
-              // Clean up the object URL after a delay to ensure it's loaded
-              setTimeout(() => {
-                URL.revokeObjectURL(pdfUrl);
-              }, 5000);
 
               // Notify the extension that we're done
               if (window.__quotationCallback) {
