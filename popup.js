@@ -325,7 +325,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                   srNo: 1,
                   description: '',
                   make: '',
-                  codeSize: '',
+                  code: '',
+                  range: '',
                   rate: '',
                   remark: ''
                 }];
@@ -336,7 +337,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                 srNo: 1,
                 description: 'Could not parse products',
                 make: '',
-                codeSize: '',
+                code: '',
+                range: '',
                 rate: '',
                 remark: ''
               }];
@@ -380,7 +382,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                       - srNo (number starting from 1)
                       - description (Product Description)
                       - make (Manufacturer name)
-                      - codeSize (Product Code or Size)
+                      - code (Product Code)
+                      - range (Measurement Range)
                       - rate (leave empty for manual filling)
                       - remark (any additional remarks))
                     
@@ -733,7 +736,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                 <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Sr No</th>
                 <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Description</th>
                 <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Make</th>
-                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Code/Size</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Code</th>
+                <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Range</th>
                 <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Rate</th>
                 <th style="border: 1px solid #ddd; padding: 12px; background: #f8f9fa;">Remark</th>
               </tr>
@@ -746,7 +750,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.srNo}</td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.description || ''}</td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.make || ''}</td>
-              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.codeSize || ''}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.code || ''}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.range || ''}</td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.rate || ''}</td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${p.remark || ''}</td>
             </tr>
@@ -758,6 +763,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             tbodyContent += `
               <tr>
                 <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${i + 1}</td>
+                <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
                 <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
                 <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
                 <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
@@ -816,6 +822,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             
             newRow.innerHTML = `
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;">${lastSrNo + 1}</td>
+              <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
               <td contenteditable="true" style="border: 1px solid #ddd; padding: 12px;"></td>
@@ -988,9 +995,10 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                   srNo: cells[0].textContent,
                   description: cells[1].textContent,
                   make: cells[2].textContent,
-                  codeSize: cells[3].textContent,
-                  rate: cells[4].textContent,
-                  remark: cells[5].textContent
+                  code: cells[3].textContent,
+                  range: cells[4].textContent,
+                  rate: cells[5].textContent,
+                  remark: cells[6].textContent
                 });
               });
 
@@ -1019,9 +1027,9 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
               // Update table position
               newDoc.autoTable({
-                startY: 65,  // Adjusted to account for quotation number
-                head: [['Sr No', 'Description', 'Make', 'Code/Size', 'Rate', 'Remark']],
-                body: tableData.map(p => [p.srNo, p.description, p.make, p.codeSize, p.rate, p.remark]),
+                startY: 65,
+                head: [['Sr No', 'Description', 'Make', 'Code', 'Range', 'Rate', 'Remark']],
+                body: tableData.map(p => [p.srNo, p.description, p.make, p.code, p.range, p.rate, p.remark]),
                 styles: {
                   fontSize: 10,
                   cellPadding: 5,
@@ -1039,11 +1047,12 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                 },
                 columnStyles: {
                   0: { cellWidth: 15 },  // Sr No
-                  1: { cellWidth: 50 },  // Description
-                  2: { cellWidth: 30 },  // Make
-                  3: { cellWidth: 30 },  // Code/Size
-                  4: { cellWidth: 25 },  // Rate
-                  5: { cellWidth: 40 }   // Remark
+                  1: { cellWidth: 45 },  // Description
+                  2: { cellWidth: 25 },  // Make
+                  3: { cellWidth: 20 },  // Code
+                  4: { cellWidth: 25 },  // Range
+                  5: { cellWidth: 20 },  // Rate
+                  6: { cellWidth: 30 }   // Remark
                 },
                 theme: 'grid'
               });
