@@ -1025,7 +1025,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               // Move company name down
               newDoc.text(`To: ${companyInput.value}`, 20, 55);
 
-              // Update table position
+              // Update table position with maxY limit to leave space for terms
               newDoc.autoTable({
                 startY: 65,
                 head: [['Sr No', 'Description', 'Make', 'Code', 'Range', 'Rate', 'Remark']],
@@ -1054,12 +1054,25 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                   5: { cellWidth: 20 },  // Rate
                   6: { cellWidth: 30 }   // Remark
                 },
-                theme: 'grid'
+                theme: 'grid',
+                // Add margin at bottom to ensure space for terms
+                margin: { bottom: 60 }
               });
 
-              // Add terms and conditions
-              const finalY = newDoc.previousAutoTable.finalY || 60;
-              
+              // Get final Y position after table
+              let finalY = newDoc.previousAutoTable.finalY || 60;
+
+              // Check if there's enough space for terms (need at least 100 units)
+              const pageHeight = newDoc.internal.pageSize.height;
+              const requiredSpace = 100; // Space needed for terms and conditions
+
+              if (pageHeight - finalY < requiredSpace) {
+                // Not enough space, add new page
+                newDoc.addPage();
+                finalY = 20; // Reset Y position to top of new page
+              }
+
+              // Add terms and conditions with consistent spacing
               newDoc.setFontSize(10);
               newDoc.setFont(undefined, 'bold');
               newDoc.text('Please Note Our Company Name:', 20, finalY + 20);
@@ -1070,11 +1083,22 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
               newDoc.text('Terms and Conditions:', 20, finalY + 45);
               newDoc.setFont(undefined, 'normal');
 
+              // Add terms with proper spacing
               updatedTerms.forEach((term, index) => {
-                newDoc.text(term, 20, finalY + 55 + (index * 10));
+                const yPos = finalY + 55 + (index * 10);
+                
+                // Check if we need a new page for this term
+                if (yPos > pageHeight - 50) { // Leave space for footer
+                  newDoc.addPage();
+                  finalY = 20 - 55 - (index * 10); // Reset Y position and adjust for current term position
+                }
+                
+                newDoc.text(term, 20, yPos);
               });
 
-              // Add footer
+              // Ensure footer is on the last page
+              const lastPage = newDoc.internal.getNumberOfPages();
+              newDoc.setPage(lastPage);
               newDoc.addImage(footerBase64, 'JPEG', 0, newDoc.internal.pageSize.height - 39, 210, 39);
 
               // Just open in new tab
