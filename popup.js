@@ -1100,7 +1100,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
 
               const composeArea = document.querySelector('[role="textbox"]');
               if (composeArea) {
-                const message = `Please find attached the quotation for your inquiry.`;
+                const message = `To ${companyName},<br><br>Please find attached your quotation.`;
                 composeArea.innerHTML = message;
                 composeArea.dispatchEvent(new Event('input', { bubbles: true }));
 
