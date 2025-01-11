@@ -304,6 +304,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     // Get products first
+    let emailContent = '';
     const productsResult = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: async (apiKey) => {
@@ -351,14 +352,14 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             return { error: 'No email content found. Please make sure you have an email open.' };
           }
 
-          let emailContent = '';
+          let emailText = '';
           emailContainers.forEach((container) => {
-            emailContent += container.innerText + '\n';
+            emailText += container.innerText + '\n';
           });
           
-          console.log('Email content:', emailContent.substring(0, 100) + '...');
+          console.log('Email content:', emailText.substring(0, 100) + '...');
 
-          if (!emailContent.trim()) {
+          if (!emailText.trim()) {
             return { error: 'Email content appears to be empty.' };
           }
 
@@ -391,7 +392,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
                 },
                 {
                   role: "user",
-                  content: `Extract information from this email: ${emailContent}`
+                  content: `Extract information from this email: ${emailText}`
                 }
               ]
             })
@@ -409,7 +410,11 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           const result = extractProductsAndCompany(data);
           console.log('Extracted data:', result);
           
-          return result;
+          return {
+            products: result.products,
+            companyName: result.companyName,
+            emailContent: emailText
+          };
         } catch (error) {
           console.error('Script execution error:', error);
           return { error: error.message };
@@ -431,7 +436,8 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
       return;
     }
 
-    const { products, companyName } = productsResult[0].result;
+    const { products, companyName, emailContent: extractedEmail } = productsResult[0].result;
+    emailContent = extractedEmail;
     
     // Inject required libraries
     await chrome.scripting.executeScript({
@@ -451,7 +457,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
     // Generate PDF with products (not updated products)
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: async (products, companyName, headerUrl, footerUrl) => {
+      func: async (products, companyName, headerUrl, footerUrl, emailContent) => {
         try {
           // Create a global variable to store the callback
           window.__quotationCallback = null;
@@ -499,6 +505,51 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
             max-height: 90vh;
             overflow-y: auto;
           `;
+
+          // Create email preview button and container (add this right after creating editorContent)
+          const emailPreviewBtn = document.createElement('button');
+          emailPreviewBtn.textContent = 'Show Email';
+          emailPreviewBtn.style.cssText = `
+            background: #805AD5;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: 15px;
+            display: block;
+            width: 100%;
+          `;
+
+          const emailPreviewContainer = document.createElement('div');
+          emailPreviewContainer.style.cssText = `
+            display: none;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+          `;
+
+          // Add click handler for email preview
+          emailPreviewBtn.onclick = () => {
+            const isVisible = emailPreviewContainer.style.display === 'block';
+            emailPreviewContainer.style.display = isVisible ? 'none' : 'block';
+            emailPreviewBtn.textContent = isVisible ? 'Show Email' : 'Hide Email';
+            
+            // Only set content if we're showing the container
+            if (!isVisible) {
+              emailPreviewContainer.textContent = emailContent;
+            }
+          };
+
+          // Add the button and container to the editor content
+          editorContent.appendChild(emailPreviewBtn);
+          editorContent.appendChild(emailPreviewContainer);
 
           // Create company name input field
           const companyDiv = document.createElement('div');
@@ -1084,7 +1135,7 @@ document.getElementById('quotePdfButton').addEventListener('click', async () => 
           return { error: error.message };
         }
       },
-      args: [products, companyName, headerUrl, footerUrl]
+      args: [products, companyName, headerUrl, footerUrl, emailContent]
     });
 
     // Keep checking the result
